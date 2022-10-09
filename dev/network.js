@@ -5,7 +5,7 @@ const Blockchain = require('./blockchain');
 const {v1: uuidv1} = require('uuid');
 const bitcoin = new Blockchain();
 const port = process.argv[2];
-
+const rp = require('request-promise');
 
 const nodeAddress = uuidv1().split('-').join('');
 app.use(parser.json());
@@ -39,6 +39,58 @@ app.get('/mine', function (req, res) {
         note: 'New block mined successfully',
         block: newBlock
     })
+});
+
+
+app.post('/register-and-broadcast-node', function(req, res) {
+    const newNodeURL = req.body.newNodeURL;
+    if (bitcoin.networkNodes.indexOf(newNodeURL) == -1) {
+        bitcoin.networkNodes.push(newNodeURL)
+    }
+
+    const registerNodesPromises = [];
+    bitcoin.networkNodes.forEach(networkNodeUrl => {
+        // hit the register-node api
+        const options = {
+            uri: networkNodeUrl + "/register-node",
+            method: 'POST',
+            body: {
+                newNodeURL: newNodeURL
+            },
+            json: true
+        };
+
+        registerNodesPromises.push(rp(options));
+    });
+
+    Promise.all(registerNodesPromises)
+        .then(data => {
+            const bulkRegisterOptions = {
+                uri: newNodeURL + '/register-node-bulk',
+                method: 'POST',
+                body: {
+                    allNetworkNodes: [...bitcoin.networkNodes, bitcoin.currentNodeURL]
+                },
+                json: true
+            };
+            return rp(bulkRegisterOptions);
+        })
+        .then(data => {
+            res.json( {note: 'New node registered with network successfully.'} );
+        })
+};
+
+app.post('/register-node', function (req, res) {
+    const newNodeUrl = req.body.newNodeURL;
+    bitcoin.networkNodes.push(newNodeUrl);
+
+    const nodeNotAlreadyPresent = bitcoin.networkNodes.indexOf(newNodeUrl == -1);
+    const notCurrentNode = newNodeUrl !== bitcoin.currentNodeURL;
+
+    if (nodeNotAlreadyPresent && notCurrentNode) {
+        res.json({note: 'New node registered successfully with node.'})
+    }
+
 });
 
 app.listen(port, function () {
