@@ -93,11 +93,27 @@ app.post('/register-node', function (req, res) {
     if (!notCurrentNode) {
         res.json( {note: `provided node: ${newNodeUrl} is current node`})
     }
+
+    const msg = [];
     if (nodeNotAlreadyPresent && notCurrentNode) {
         bitcoin.networkNodes.push(newNodeUrl);
-        res.json({note: `New node: ${newNodeUrl} registered successfully with node.`})
+        msg.push(`New node: ${newNodeUrl} registered successfully with node.`);
+
+        const reverseRegister = {
+            uri: newNodeUrl + "/register-node",
+            method: 'POST',
+            body: {
+                newNodeUrl: bitcoin.currentNodeUrl
+            },
+            json: true
+        };
+
+        rp(reverseRegister).then(data => {
+            msg.push(data);
+            res.json(data)
+        })
     }
-    
+
 
 });
 
