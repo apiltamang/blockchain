@@ -6,7 +6,7 @@ function Blockchain() {
     this.chain = [];
     this.pendingTransactions = [];
     this.createNewBlock(100, '0', '0');
-    this.networkNodes = []
+    this.networkNodes = [];
     this.currentNodeUrl = currentNodeUrl;
 }
 
@@ -59,6 +59,34 @@ Blockchain.prototype.proofOfWork = function(previousHash, currData) {
 Blockchain.prototype.addTransactionToPendingTransactions = function(transactionObj) {
     this.pendingTransactions.push(transactionObj);
     return this.getLastBlock()['index'] + 1;
+};
+
+Blockchain.prototype.chainIsValid = function(blockchain) {
+    let validChain = true;
+    for (var i = 1; i<blockchain.length; i++) {
+        const currBlock = blockchain[i];
+        const prevBlock = blockchain[i-1];
+
+        const blockHash = this.hashBlock(prevBlock['hash'], {transactions: currBlock['transactions'], index: currBlock['index']}, currBlock['nonce']);
+        if (blockHash.substring(0, 4) !== '0000') {
+            validChain = false;
+        }
+
+        if (currBlock['previousBlockHash'] !== prevBlock['hash']) { // chain not valid
+            validChain = false;
+        }
+    };
+
+    const genesisBlock = blockchain[0];
+    const correctNonce = genesisBlock['nonce'] === 100;
+    const correctHash = genesisBlock['hash'] == '0 ';
+    const correctTransactions = genesisBlock['transactions'].length === 0;
+
+    if (!(correctHash && correctNonce && correctTransactions)) {
+        validChain = false;
+    }
+
+    return validChain;
 };
 
 module.exports = Blockchain;
