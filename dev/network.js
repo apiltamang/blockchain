@@ -223,11 +223,16 @@ app.get('/consensus', function(req, res) {
         let newPendingTransactions = null;
 
         blockchains.forEach(blockchain => {
+            console.log("analyzing blockchain: ", blockchain);
+
             if (maxChainLength < blockchain.chain.length) {
-                if (bitcoin.chainIsValid(blockchain)) {
+                if (bitcoin.chainIsValid(blockchain.chain)) {
+                    console.log("chain is valid !");
                     newLongestChain = blockchain.chain;
                     maxChainLength = blockchain.chain.length;
                     newPendingTransactions = blockchain.pendingTransactions;
+                } else {
+                    console.log("chain is not valid")
                 }
             }
         });
@@ -247,6 +252,35 @@ app.get('/consensus', function(req, res) {
             })
         }
     });
+});
+
+app.get('/block/:blockHash', function (req, res) {
+    const blockHash = req.params.blockHash;
+    const correctBlock = bitcoin.getBlock(blockHash);
+    res.json({
+        block: correctBlock
+    });
+});
+
+app.get('/transaction/:transactionId', function (req, res) {
+    const transactionId = req.params.transactionId;
+    const data = bitcoin.getTransaction(transactionId);
+    res.json({
+        transaction: data.transaction,
+        block: data.block
+    })
+});
+
+app.get('/address/:address', function (req, res) {
+    const address = req.params.address;
+    const addressData = bitcoin.getAddressData(address);
+    res.json({
+        addressData: addressData
+    });
+});
+
+app.get('/block-explorer', function (req, res) {
+    res.sendFile('./block-explorer/index.html', {root: __dirname})
 });
 
 app.listen(port, function () {

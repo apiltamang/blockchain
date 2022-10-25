@@ -1,8 +1,16 @@
 const sha256 = require('sha256');
 const currentNodeUrl = process.argv[3];
 const {v1: uuidv1} = require('uuid');
+const sampleBlock = require('./sample.json');
 
 function Blockchain() {
+    if (currentNodeUrl === "http://localhost:3001") {
+       this.chain = sampleBlock.chain;
+       this.pendingTransactions = sampleBlock.pendingTransactions;
+       this.networkNodes = sampleBlock.networkNodes;
+       this.currentNodeUrl = currentNodeUrl;
+       return;
+    }
     this.chain = [];
     this.pendingTransactions = [];
     this.createNewBlock(100, '0', '0');
@@ -11,7 +19,7 @@ function Blockchain() {
 }
 
 Blockchain.prototype.createNewBlock = function(nonce, previousBlockHash, hash) {
-  const newBlock = {
+    const newBlock = {
       index: this.chain.length + 1,
       timestamp: Date.now(),
       transactions: this.pendingTransactions,
@@ -63,23 +71,26 @@ Blockchain.prototype.addTransactionToPendingTransactions = function(transactionO
 
 Blockchain.prototype.chainIsValid = function(blockchain) {
     let validChain = true;
-    for (var i = 1; i<blockchain.length; i++) {
+    for (let i = 1; i<blockchain.length; i++) {
         const currBlock = blockchain[i];
         const prevBlock = blockchain[i-1];
 
         const blockHash = this.hashBlock(prevBlock['hash'], {transactions: currBlock['transactions'], index: currBlock['index']}, currBlock['nonce']);
         if (blockHash.substring(0, 4) !== '0000') {
+            console.log("blockHash doesnt start with 0000");
             validChain = false;
         }
 
         if (currBlock['previousBlockHash'] !== prevBlock['hash']) { // chain not valid
+            console.log("currBlock's prvious hash isn't equal to prev block hash");
             validChain = false;
         }
     };
 
+    console.log("genesis block is: ", blockchain[0]);
     const genesisBlock = blockchain[0];
-    const correctNonce = genesisBlock['nonce'] === 100;
-    const correctHash = genesisBlock['hash'] == '0 ';
+    const correctNonce = 100 === genesisBlock['nonce'];
+    const correctHash = '0' === genesisBlock['hash'];
     const correctTransactions = genesisBlock['transactions'].length === 0;
 
     if (!(correctHash && correctNonce && correctTransactions)) {
@@ -87,6 +98,55 @@ Blockchain.prototype.chainIsValid = function(blockchain) {
     }
 
     return validChain;
+};
+
+Blockchain.prototype.getTransaction = function(transactionId) {
+    let correctTransaction = null;
+    let correctBlock = null;
+
+    this.chain.forEach(block => {
+        block.transactions.forEach(transaction => {
+            if (transaction.transactionId === transactionId) {
+                correctTransaction = transaction;
+                correctBlock = block;
+            };
+        });
+    });
+
+    return {
+        transaction: correctTransaction,
+        block: correctBlock
+    };
+};
+
+Blockchain.prototype.getAddressData = function(address) {
+    const addressTransactions = [];
+    this.chain.forEach(block => {
+        block.transactions.forEach(transaction => {
+            if(transaction.sender === address || transaction.recipient === address) {
+                addressTransactions.push(transaction);
+            };
+        });
+    });
+
+    let balance = 0;
+    addressTransactions.forEach(transaction => {
+        if (transaction.recipient === address) balance += transaction.amount;
+        else if (transaction.sender === address) balance -= transaction.amount;
+    });
+
+    return {
+        addressTransactions: addressTransactions,
+        addressBalance: balance
+    };
+};
+
+Blockchain.prototype.getBlock = function(blockHash) {
+    let correctBlock = null;
+    this.chain.forEach(block => {
+        if (block.hash === blockHash) correctBlock = block;
+    });
+    return correctBlock;
 };
 
 module.exports = Blockchain;
